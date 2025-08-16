@@ -1,4 +1,13 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# Auto-generated from pdn_impedance_analysis_refactored.ipynb
+# 
+# This script was automatically generated from the Jupyter notebook.
+# To regenerate this script, run the last cell of the notebook or use:
+#   jupyter nbconvert --to script pdn_impedance_analysis_refactored.ipynb
+# 
+
+#!/usr/bin/env python
 # coding: utf-8
 
 # # Power Delivery Network (PDN) Impedance Analysis
@@ -25,6 +34,17 @@
 # - Individual component contributions
 # - Final 1-port .s1p model for further analysis
 
+# ## Notebook Setup
+# 
+# Set the notebook name for the export functionality.
+
+# In[ ]:
+
+
+# Notebook filename for export functionality
+NOTEBOOK_NAME = "pdn_impedance_analysis_refactored.ipynb"
+
+
 # ## Imports and Configuration
 # 
 # First, let's import all necessary libraries and set up our analysis environment.
@@ -38,13 +58,22 @@ import matplotlib.pyplot as plt
 import skrf as rf
 import warnings
 
+
+# In[ ]:
+
+
 # Configure matplotlib for better plots
-plt.rcParams['figure.figsize'] = (10, 6)
-plt.rcParams['font.size'] = 12
-plt.rcParams['grid.alpha'] = 0.3
+get_ipython().run_line_magic('matplotlib', 'inline')
+plt.rcParams["figure.figsize"] = (10, 6)
+plt.rcParams["font.size"] = 12
+plt.rcParams["grid.alpha"] = 0.3
+
+
+# In[ ]:
+
 
 # Suppress warnings for cleaner output
-warnings.filterwarnings('ignore', category=RuntimeWarning)
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 print("Libraries imported successfully!")
 print(f"scikit-rf version: {rf.__version__}")
@@ -777,3 +806,54 @@ print("- Minimize parasitic inductances in layout")
 # 5. Extend to time-domain analysis if needed
 # 
 # The generated `.s1p` file can be used in circuit simulators or system-level analysis tools for further investigation.
+
+# ## Notebook Export to Python Script
+# 
+# Export this notebook to a standalone Python script for execution without Jupyter.
+
+# In[ ]:
+
+
+import subprocess
+import pathlib
+
+# Auto-detect notebook filename or use predefined name
+nb_path = pathlib.Path(__file__).name if "__file__" in globals() else NOTEBOOK_NAME
+
+try:
+    # Export notebook to Python script
+    subprocess.run([
+        "jupyter", "nbconvert", "--to", "script", nb_path
+    ], check=True)
+
+    # Get the output script name
+    script_name = pathlib.Path(nb_path).with_suffix(".py")
+
+    # Add header comment to the generated script
+    if script_name.exists():
+        with open(script_name, "r") as f:
+            content = f.read()
+
+        header = """#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# Auto-generated from {}
+# 
+# This script was automatically generated from the Jupyter notebook.
+# To regenerate this script, run the last cell of the notebook or use:
+#   jupyter nbconvert --to script {}
+# 
+""".format(nb_path, nb_path)
+
+        # Write header + content
+        with open(script_name, "w") as f:
+            f.write(header + content)
+
+    print(f"Successfully exported {nb_path} to {script_name}")
+    print(f"Script can be run with: python {script_name}")
+
+except subprocess.CalledProcessError as e:
+    print(f"Error exporting notebook: {e}")
+    print("Make sure jupyter nbconvert is installed and accessible")
+except Exception as e:
+    print(f"Unexpected error during export: {e}")
+
