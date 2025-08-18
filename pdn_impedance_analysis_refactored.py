@@ -6,7 +6,6 @@
 # To regenerate this script, run the last cell of the notebook or use:
 #   jupyter nbconvert --to script pdn_impedance_analysis_refactored.ipynb
 # 
-
 #!/usr/bin/env python
 # coding: utf-8
 
@@ -91,9 +90,10 @@ print(f"scikit-rf version: {rf.__version__}")
 # Configuration Parameters
 # -------------------------
 
-# For this example, we'll use one of the existing s2p files as our PDN model
+# For this example, we'll create a synthetic PDN model appropriate for PDN analysis
 # In a real analysis, this would be your extracted plane/package model
-PDN_S2P = "line.s2p"  # Using existing file as PDN example
+# Note: line.s2p operates at 75-110 GHz which is too high for PDN analysis
+PDN_S2P = "synthetic"  # We'll create a synthetic model
 
 # Since we don't have actual capacitor models, we'll create synthetic ones
 # In practice, these would be your measured/simulated MLCC models
@@ -167,15 +167,24 @@ def cap_s2p_as_shunt_1port(cap2: rf.Network) -> rf.Network:
     This models how MLCCs are actually used: one terminal connected to
     the power rail, the other to ground.
 
+    For a series capacitor (same Z across all ports), the shunt impedance
+    is simply the original impedance.
+
     Args:
         cap2: 2-port capacitor model
     Returns:
         1-port shunt equivalent
     """
     cap2 = renorm_1ohm(cap2)
-    med = rf.media.DefinedGammaZ0(cap2.frequency, z0=1.0)
-    short = med.short()  # Ideal short to ground
-    cap1 = rf.connect(cap2, 1, short, 0)  # Connect port 2 to ground
+
+    # For a simple series capacitor, Z11 = Z22 = Z12 = Z21 = Z_cap
+    # The shunt impedance is just Z_cap itself
+    Z_shunt = cap2.z[:, 0, 0]  # Take Z11 as the shunt impedance
+
+    # Create 1-port network directly
+    Z_matrix_1port = Z_shunt.reshape(-1, 1, 1)
+    cap1 = rf.Network(frequency=cap2.frequency, z=Z_matrix_1port, z0=1.0)
+
     return cap1
 
 def combine_shunt_1ports_to_ground(oneports: list) -> np.ndarray:
@@ -196,7 +205,15 @@ def combine_shunt_1ports_to_ground(oneports: list) -> np.ndarray:
     Ysum = np.zeros(oneports[0].frequency.npoints, dtype=complex)
     for n in oneports:
         n = renorm_1ohm(n)
-        Ysum += 1.0 / n.z[:, 0, 0]  # Convert Z to Y and sum
+        Z_cap = n.z[:, 0, 0]
+
+        # Add numerical safeguard to prevent division by zero
+        # Set minimum impedance magnitude to avoid numerical issues
+        Z_cap = np.where(np.abs(Z_cap) < 1e-12, 1e-12 + 0j, Z_cap)
+
+        Y_cap = 1.0 / Z_cap
+        Ysum += Y_cap
+
     return Ysum
 
 def vrm_as_admittance_from_RL(freq: rf.Frequency, R=0.2, L=10e-9) -> np.ndarray:
@@ -301,17 +318,32 @@ print("Synthetic capacitor generator ready!")
 # In[ ]:
 
 
-# Load the PDN 2-port model
-print(f"Loading PDN model: {PDN_S2P}")
-pdn = rf.Network(PDN_S2P)
-pdn = renorm_1ohm(pdn)  # Normalize to 1 Ω for better numerics
-
-# Set master frequency grid
-freq = pdn.frequency
+# Create appropriate frequency grid for PDN analysis (1 MHz to 10 GHz)
+print(f"Creating PDN frequency grid for analysis...")
+freq = rf.Frequency(start=1e6, stop=10e9, npoints=1001, unit='Hz')
 fGHz = freq.f / 1e9  # Convert to GHz for plotting
 
 print(f"Frequency range: {fGHz[0]:.3f} - {fGHz[-1]:.3f} GHz")
 print(f"Number of points: {len(fGHz)}")
+
+# Create a simple synthetic PDN model instead of using line.s2p
+# This represents a typical plane with some inductance and resistance
+print(f"Creating synthetic PDN model...")
+w = 2 * np.pi * freq.f
+
+# Simple PDN model: small series resistance and inductance
+R_pdn = 0.5e-3  # 0.5 mOhm
+L_pdn = 100e-12  # 100 pH
+Z_pdn = R_pdn + 1j * w * L_pdn
+
+# Create 2-port Z-matrix for simple series impedance
+Z_matrix = np.zeros((len(freq.f), 2, 2), dtype=complex)
+Z_matrix[:, 0, 0] = Z_pdn  # Z11
+Z_matrix[:, 0, 1] = Z_pdn  # Z12 
+Z_matrix[:, 1, 0] = Z_pdn  # Z21
+Z_matrix[:, 1, 1] = Z_pdn  # Z22
+
+pdn = rf.Network(frequency=freq, z=Z_matrix, z0=1.0)
 print(f"PDN network shape: {pdn.s.shape}")
 
 # Plot the raw PDN S-parameters for reference
