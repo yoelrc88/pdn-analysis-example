@@ -63,7 +63,9 @@ import warnings
 
 
 # Configure matplotlib for better plots
-get_ipython().run_line_magic('matplotlib', 'inline')
+# get_ipython().run_line_magic('matplotlib', 'inline')  # Only works in Jupyter
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend for script execution
 plt.rcParams["figure.figsize"] = (10, 6)
 plt.rcParams["font.size"] = 12
 plt.rcParams["grid.alpha"] = 0.3
@@ -275,12 +277,15 @@ def create_synthetic_capacitor(freq: rf.Frequency, C: float,
     # Impedance of R-L-C series combination
     Z_cap = ESR + 1j * (w * ESL - 1 / (w * C))
 
-    # Create 2-port representation (series element)
-    # Z-parameters for series impedance between ports
-    Z11 = Z_cap
-    Z12 = Z_cap  
+    # Create 2-port representation (series element between ports)
+    # For a series element, Z-parameters should be well-conditioned
+    # Add small shunt resistances to ground for numerical stability
+    Z_shunt = 1e9  # Very large shunt resistance (open-like)
+    
+    Z11 = Z_cap + Z_shunt
+    Z12 = Z_cap
     Z21 = Z_cap
-    Z22 = Z_cap
+    Z22 = Z_cap + Z_shunt
 
     Z_matrix = np.zeros((len(freq.f), 2, 2), dtype=complex)
     Z_matrix[:, 0, 0] = Z11
